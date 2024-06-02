@@ -61,7 +61,7 @@ MuseScore {
     property var    voiceColors: [ "#b91c1c", "#a16207", "#4d7c0f", "#0f766e", "#1d4ed8", "#86198f", "#334155", "#020617" ]
     property string emptyNoteColor: "#000000"
     property var    noteColors: [ "#e21c48", "#f26622", "#f99d1c", "#ffcc33", "#fff32b", "#bcd85f", "#62bc47", "#009c95", "#0071bb", "#5e50a1", "#8d5ba6", "#cf3e96" ]
-    property var    noteTextColors: [ "#000", "#000", "#000", "#00", "#000", "#000", "#000", "#fff", "#fff", "#000", "#fff", "#fff" ]
+    property var    noteTextColors: [ "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#000000", "#ffffff", "#ffffff", "#000000", "#ffffff", "#ffffff" ]
 
     // labels
     property var noteNames : [ "C", "C#/Db", "D", "D#/Eb", "E", "F", "F#/Gb", "G", "G#/Ab", "A", "A#/Bb", "B" ]
@@ -73,6 +73,16 @@ MuseScore {
     property var noteButtons: []
     property var voices: []
     property var voicesByName
+    property var existingLabels: []
+
+    function existingLabelsIncludes(element) {
+        for (var existingLabel of existingLabels) {
+            if (existingLabel.is(element)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     function displayMessageDlg(msg) {
         ctrlMessageDialog.text = qsTr(msg);
@@ -81,7 +91,6 @@ MuseScore {
 
     function collectVoices() {
         var cursor = curScore.newCursor();
-        //var result = new Set();
 
         voices = [];
         voicesByName = new Map();
@@ -97,6 +106,16 @@ MuseScore {
                 cursor.voice = v;
 
                 while (cursor.segment) {
+                    for (var i = 0; i < cursor.segment.annotations.length; i++) {
+                        var element = cursor.segment.annotations[i];
+                        if (element.type === Element.STAFF_TEXT 
+                                && !existingLabelsIncludes(element)
+                                && noteColors.includes(element.frameBgColor.toString())
+                                && noteTextColors.includes(element.color.toString())) {
+                            existingLabels.push(element);
+                        }
+                    }
+
                     if (cursor.element && cursor.element.type == Element.CHORD) {
                         var name = cursor.element.staff.part.longName;
                         if (!voicesByName.has(name)) {
@@ -249,8 +268,6 @@ MuseScore {
     }
 
     function applyColors() {
-        curScore.startCmd();
-
         var cursor = curScore.newCursor();
         for (var s = 0; s < curScore.nstaves; s++) {
             cursor.rewind(Cursor.SCORE_START);
@@ -284,6 +301,78 @@ MuseScore {
                 }
             }
         }
+    }
+
+    function removeExistingLabels() {
+        for (var existingLabel of existingLabels) {
+            removeElement(existingLabel);
+        }
+        existingLabels = [];
+    }
+
+    function noteNameOf(noteNumber) {
+        var octave = octaveNames.length - Math.floor(noteNumber / 12) - 1;
+        var octaveName = octaveNames[octaveNames.length - Math.floor(noteNumber / 12) - 1];
+        if (octaveName === "-") {
+            octaveName = "";
+        }
+        return noteNames[noteNumber % 12] + octaveName;
+    }
+
+    function addLabels() {
+        var lastPartName = "";
+        var cursor = curScore.newCursor();
+        for (var i = 0; i < curScore.nstaves; ++i) {
+            var partName = curScore.staves[i].part.longName;
+            if (lastPartName === partName) {
+                continue;
+            }
+            lastPartName = partName;
+
+            var voice = voices.find(v => v.name === partName);
+            if (!voice) {
+                continue;
+            }
+
+            cursor.rewind(Cursor.SCORE_START);
+            cursor.staffIdx = i;
+            cursor.voice = 0;
+
+            var offset = 0;
+            for (var noteNumber of voice.usedNotes.sort()) {
+                var text = newElement(Element.STAFF_TEXT);
+                text.text = noteNameOf(noteNumber);
+                text.placement = Placement.ABOVE;
+                text.autoplace = false;
+                text.offsetX = -14 + offset;
+                text.offsetY = -3.5;
+
+                text.fontFace =  "FreeSerif";
+                text.fontSize =  10;
+                text.fontStyle =  1;
+
+                text.color = noteTextColors[noteNumber % 12];
+
+                text.frameType = 1;
+                text.frameWidth = 0;
+                text.framePadding = 1;
+                text.frameRound = 20;
+                text.frameBgColor = noteColors[noteNumber % 12];
+
+    		    cursor.add(text);
+                offset += text.bbox.width + 2 + 1;
+            }
+
+
+        }
+    }
+
+    function applyChanges() {
+        curScore.startCmd();
+
+        removeExistingLabels();
+        applyColors();
+        addLabels();
                
         curScore.endCmd()
     }
@@ -408,7 +497,7 @@ MuseScore {
                         Rectangle {
                             id: indicator
     
-                            color: parent.active
+                            color: (parent.active && parent.num > 0)
                                 ? voiceColors[(parent.num - 1) % voiceColors.length] 
                                 : "#444"
                             
@@ -609,7 +698,7 @@ MuseScore {
                 hoverEnabled: true
                 
                 onClicked: {
-                   applyColors();
+                   applyChanges();
                    (typeof(quit) === 'undefined' ? Qt.quit : quit)();
                 }
     
