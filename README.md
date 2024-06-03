@@ -1,6 +1,6 @@
 # dasd.ware Boomwhacker Colors
 
-![Plugin dialog](dw_boomwhackers.png)
+![Plugin dialog](resources/dw_Boomwhackers.png)
 
 This plugin allows color noteheads with [Boomwhacker](https://en.wikipedia.org/wiki/Boomwhacker) colors. In contrast to other plugins, it is possible to select for each part, which notes should be colored. This is useful when playing with several musicians, where each one has a specific set of pipes.
 
