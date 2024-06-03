@@ -24,14 +24,13 @@ MuseScore {
     Component.onCompleted : {
         if (mscoreMajorVersion >= 4) {
             boomwhacker_colors.title = qsTr("Boomwhacker Colors") ;
-            //boomwhacker_colors.thumbnailName = "thumbnail.png";
-            //boomwhacker_colors.categoryCode = "some_category";
+            boomwhacker_colors.thumbnailName = "dw_Boomwhackers.png";
+            boomwhacker_colors.categoryCode = "boomwhacker-colors";
         }
     }
 
-    version: "0.1"
-    description: "Color notes as per Boomwhacker color scheme."
-    menuPath: "Plugins.Boomwhacker Colors"
+    version: "1.0.0"
+    description: qsTr("Color notes as per Boomwhacker color scheme. Allows to select which notes for which part should be colored to allow creating parts for individual players.")
     pluginType: "dialog"
 
     // configuration
