@@ -1,6 +1,8 @@
 # dasd.ware Boomwhacker Colors
 
-![Plugin dialog](resources/dw_Boomwhackers.png)
+<div style="text-align: center">
+    <img alt="dasd.ware Boomwhacker Colors" src="resources/dw_Boomwhackers.png" style="width: 300px" />
+</div>
 
 This plugin allows color noteheads with [Boomwhacker](https://en.wikipedia.org/wiki/Boomwhacker) colors. In contrast to other plugins, it is possible to select for each part, which notes should be colored. This is useful when playing with several musicians, where each one has a specific set of pipes.
 
@@ -10,10 +12,10 @@ The plugin uses the following octave names:
 
 | Octave | Note range  | Description                                                                                                              |
 | :----: | :---------: | ------------------------------------------------------------------------------------------------------------------------ |
-|  `↑­`   | `c"` - `g"` | The high register.                                                                                                       |
-|  `-­`   | `c'` - `b'` | The normal register. When adding labels, the `-` will be omitted.                                                        |
-|  `↓­`   |  `c` - `b`  | The low register.                                                                                                        |
-| `↓↓­`   |  `C` - `B`  | The lowest register. This can be achieved by putting tube caps on the large pipes, which loweres them by another octave. |
+|  `↑­`  | `c"` - `g"`  | The high register.                                                                                                       |
+|  `-­`  | `c'` - `b'`  | The normal register. When adding labels, the `-` will be omitted.                                                        |
+|  `↓­`  |  `c` - `b`   | The low register.                                                                                                        |
+| `↓↓­`  |  `C` - `B`   | The lowest register. This can be achieved by putting tube caps on the large pipes, which loweres them by another octave. |
 
 ## Recommended steps
 
