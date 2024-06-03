@@ -24,7 +24,7 @@ MuseScore {
     Component.onCompleted : {
         if (mscoreMajorVersion >= 4) {
             boomwhacker_colors.title = qsTr("Boomwhacker Colors") ;
-            boomwhacker_colors.thumbnailName = "dw_Boomwhackers.png";
+            boomwhacker_colors.thumbnailName = "resources/dw_Boomwhackers.png";
             boomwhacker_colors.categoryCode = "boomwhacker-colors";
         }
     }
