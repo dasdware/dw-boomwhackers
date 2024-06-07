@@ -338,7 +338,7 @@ MuseScore {
             cursor.voice = 0;
 
             var offset = 0;
-            for (var noteNumber of voice.usedNotes.sort()) {
+            for (var noteNumber of voice.usedNotes.sort(function (a, b) {  return a - b;  })) {
                 var text = newElement(Element.STAFF_TEXT);
                 text.text = noteNameOf(noteNumber);
                 text.placement = Placement.ABOVE;
