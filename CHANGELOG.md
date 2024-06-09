@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added coloring for grace notes ([#9](https://github.com/dasdware/dw-boomwhackers/issues/9)).
 - Correctly order part note labels by ascending order ([#7](https://github.com/dasdware/dw-boomwhackers/issues/7)).
 
 ## [1.0.0] - 2024-06-03
