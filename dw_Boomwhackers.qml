@@ -279,10 +279,14 @@ MuseScore {
             var pitch = chord.notes[i].pitch;
             if (minPitch <= pitch && pitch <= maxPitch) {
                 var noteNumber = pitch - minPitch;
+                var color = emptyNoteColor;
                 if (voice.usedNotes.includes(noteNumber)) {
-                    chord.notes[i].color = noteColors[pitch % 12];
-                } else {
-                    chord.notes[i].color = emptyNoteColor;
+                    color = noteColors[pitch % 12];
+                }
+
+                chord.notes[i].color = color;
+                if (chord.notes[i].accidental) {
+                    chord.notes[i].accidental.color = color;
                 }
             }
         }
