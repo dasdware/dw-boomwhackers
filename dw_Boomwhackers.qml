@@ -88,6 +88,25 @@ MuseScore {
         ctrlMessageDialog.visible = true;
     }
 
+    function collectChord(voice, chord) {
+        for (var i = 0; i < chord.notes.length; i++) {
+            var pitch = chord.notes[i].pitch;
+            if (minPitch <= pitch && pitch <= maxPitch) {
+                var noteNumber = pitch - minPitch;
+                if (!voice.availableNotes.includes(noteNumber)) {
+                    voice.availableNotes.push(noteNumber);
+                } if (chord.notes[i].color != emptyNoteColor
+                        && !voice.usedNotes.includes(noteNumber)) {
+                    voice.usedNotes.push(noteNumber);
+                }
+            }
+        }
+
+        for (var i = 0; i < chord.graceNotes.length; i++) {
+            collectChord(voice, chord.graceNotes[i]);
+        }
+    }
+
     function collectVoices() {
         var cursor = curScore.newCursor();
 
@@ -130,18 +149,7 @@ MuseScore {
                         }
                         var voice = voicesByName.get(name);
 
-                        for (var i = 0; i < cursor.element.notes.length; i++) {
-                            var pitch = cursor.element.notes[i].pitch;
-                            if (minPitch <= pitch && pitch <= maxPitch) {
-                                var noteNumber = pitch - minPitch;
-                                if (!voice.availableNotes.includes(noteNumber)) {
-                                    voice.availableNotes.push(noteNumber);
-                                } if (cursor.element.notes[i].color != emptyNoteColor
-                                        && !voice.usedNotes.includes(noteNumber)) {
-                                    voice.usedNotes.push(noteNumber);
-                                }
-                            }
-                        }
+                        collectChord(voice, cursor.element);
                     }
 
                     cursor.next();
@@ -266,6 +274,25 @@ MuseScore {
         return n;
     }
 
+    function applyChordColors(voice, chord) {
+        for (var i = 0; i < chord.notes.length; i++) {
+            var pitch = chord.notes[i].pitch;
+            if (minPitch <= pitch && pitch <= maxPitch) {
+                var noteNumber = pitch - minPitch;
+                if (voice.usedNotes.includes(noteNumber)) {
+                    chord.notes[i].color = noteColors[pitch % 12];
+                } else {
+                    chord.notes[i].color = emptyNoteColor;
+                }
+            }
+        }
+
+        for (var i = 0; i < chord.graceNotes.length; i++) {
+            applyChordColors(voice, chord.graceNotes[i]);
+        }
+
+    }
+
     function applyColors() {
         var cursor = curScore.newCursor();
         for (var s = 0; s < curScore.nstaves; s++) {
@@ -283,17 +310,7 @@ MuseScore {
                         var name = cursor.element.staff.part.longName;
                         var voice = voicesByName.get(name);
 
-                        for (var i = 0; i < cursor.element.notes.length; i++) {
-                            var pitch = cursor.element.notes[i].pitch;
-                            if (minPitch <= pitch && pitch <= maxPitch) {
-                                var noteNumber = pitch - minPitch;
-                                if (voice.usedNotes.includes(noteNumber)) {
-                                    cursor.element.notes[i].color = noteColors[pitch % 12];
-                                } else {
-                                    cursor.element.notes[i].color = emptyNoteColor;
-                                }
-                            }
-                        }
+                        applyChordColors(voice, cursor.element);
                     }
 
                     cursor.next();
