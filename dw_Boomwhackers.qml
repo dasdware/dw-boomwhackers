@@ -407,9 +407,7 @@ MuseScore {
 
     onRun: {
         if (typeof curScore === 'undefined') {
-            var msg = "Chord Levels exiting without processing - no current score!";
-            console.log(msg);
-            displayMessageDlg(msg);
+            displayMessageDlg("Exiting without processing - no current score!");
             (typeof(quit) === 'undefined' ? Qt.quit : quit)()
         }
 
@@ -420,8 +418,7 @@ MuseScore {
     MessageDialog {
         id: ctrlMessageDialog
         icon: StandardIcon.Information
-        title: "Chord Levels Message"
-        text: "Welcome to Chord Levels!"
+        title: "Message"
         visible: false
         onAccepted: {
             visible = false;
