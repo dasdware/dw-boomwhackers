@@ -72,6 +72,7 @@ MuseScore {
     property var noteButtons: []
     property var voices: []
     property var voicesByName
+    property var sections: []
     property var existingLabels: []
 
     function existingLabelsIncludes(element) {
@@ -123,6 +124,7 @@ MuseScore {
                 cursor.staffIdx = s;
                 cursor.voice = v;
 
+                var currentSection = '';
                 while (cursor.segment) {
                     for (var i = 0; i < cursor.segment.annotations.length; i++) {
                         var element = cursor.segment.annotations[i];
@@ -131,6 +133,13 @@ MuseScore {
                                 && noteColors.includes(element.frameBgColor.toString())
                                 && noteTextColors.includes(element.color.toString())) {
                             existingLabels.push(element);
+                        } else if (element.type === Element.STAFF_TEXT
+                                && element.text.startsWith("#BW")
+                                && element.staff.is(curScore.staves[s])) {
+                            currentSection = element.text.substring(3).trim();
+                            if (!sections.includes(currentSection)) {
+                                sections.push(currentSection);
+                            }
                         }
                     }
 
@@ -148,7 +157,6 @@ MuseScore {
                             voicesByName.set(name, newVoice);
                         }
                         var voice = voicesByName.get(name);
-
                         collectChord(voice, cursor.element);
                     }
 
@@ -156,6 +164,8 @@ MuseScore {
                 }
             }
         }
+
+        sections.sort();
         return voices;
     }
 
