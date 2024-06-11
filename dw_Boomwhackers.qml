@@ -288,6 +288,10 @@ MuseScore {
                 if (chord.notes[i].accidental) {
                     chord.notes[i].accidental.color = color;
                 }
+
+                for (var j = 0; j < chord.notes[i].dots.length; j++) {
+                    chord.notes[i].dots[j].color = color;
+                }
             }
         }
 
