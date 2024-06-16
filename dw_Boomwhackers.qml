@@ -1,17 +1,3 @@
-//==========================================================================================
-//  Chord Level Select for MuseScore
-//  Has been tested in custom 3.7 branch, 3.6.2,
-//  and to be tested on 4.x
-
-//  Errors or suggestions or whatever @ https://musescore.org/en/node/328754
-//  Maybe I should get a git branch for this thing...
-//
-//
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License version 2
-//  as published by the Free Software Foundation and appearing in
-//  the file LICENCE.GPL
-//===========================================================================================
 import QtQuick 2.2
 import QtQuick.Controls 1.1
 import QtQuick.Controls.Styles 1.4
@@ -72,6 +58,8 @@ MuseScore {
     property var noteButtons: []
     property var voices: []
     property var voicesByName
+    property var sections: []
+    property var selectedSection
     property var existingLabels: []
 
     function existingLabelsIncludes(element) {
@@ -88,22 +76,32 @@ MuseScore {
         ctrlMessageDialog.visible = true;
     }
 
-    function collectChord(voice, chord) {
+    function collectChord(voice, chord, section) {
         for (var i = 0; i < chord.notes.length; i++) {
             var pitch = chord.notes[i].pitch;
             if (minPitch <= pitch && pitch <= maxPitch) {
+                if (!voice.availableNotes.has(section)) {
+                    voice.availableNotes.set(section, []);
+                }
+                var availableNotes = voice.availableNotes.get(section);
+
+                if (!voice.usedNotes.has(section)) {
+                    voice.usedNotes.set(section, []);
+                }
+                var usedNotes = voice.usedNotes.get(section);
+
                 var noteNumber = pitch - minPitch;
-                if (!voice.availableNotes.includes(noteNumber)) {
-                    voice.availableNotes.push(noteNumber);
+                if (!availableNotes.includes(noteNumber)) {
+                    availableNotes.push(noteNumber);
                 } if (chord.notes[i].color != emptyNoteColor
-                        && !voice.usedNotes.includes(noteNumber)) {
-                    voice.usedNotes.push(noteNumber);
+                        && !usedNotes.includes(noteNumber)) {
+                    usedNotes.push(noteNumber);
                 }
             }
         }
 
         for (var i = 0; i < chord.graceNotes.length; i++) {
-            collectChord(voice, chord.graceNotes[i]);
+            collectChord(voice, chord.graceNotes[i], section);
         }
     }
 
@@ -123,6 +121,11 @@ MuseScore {
                 cursor.staffIdx = s;
                 cursor.voice = v;
 
+                var currentSection = '';
+                if (!sections.includes(currentSection)) {
+                    sections.push(currentSection);
+                }
+
                 while (cursor.segment) {
                     for (var i = 0; i < cursor.segment.annotations.length; i++) {
                         var element = cursor.segment.annotations[i];
@@ -131,6 +134,13 @@ MuseScore {
                                 && noteColors.includes(element.frameBgColor.toString())
                                 && noteTextColors.includes(element.color.toString())) {
                             existingLabels.push(element);
+                        } else if (element.type === Element.STAFF_TEXT
+                                && element.text.startsWith("#BW")
+                                && element.staff.is(curScore.staves[s])) {
+                            currentSection = element.text.substring(3).trim();
+                            if (!sections.includes(currentSection)) {
+                                sections.push(currentSection);
+                            }
                         }
                     }
 
@@ -141,21 +151,22 @@ MuseScore {
                                 name: name,
                                 num: 0,
                                 active: true,
-                                availableNotes: [],
-                                usedNotes: []
+                                availableNotes: new Map(),
+                                usedNotes: new Map()
                             };
                             voices.push(newVoice);
                             voicesByName.set(name, newVoice);
                         }
                         var voice = voicesByName.get(name);
-
-                        collectChord(voice, cursor.element);
+                        collectChord(voice, cursor.element, currentSection);
                     }
 
                     cursor.next();
                 }
             }
         }
+
+        sections.sort();
         return voices;
     }
 
@@ -199,20 +210,23 @@ MuseScore {
     }
     
     function updateNoteButtons() {
+        var availableNotes = selectedVoice.availableNotes.get(selectedSection);
         for (var button of noteButtons) {
             if (selectedVoice.active) {
                 button.available = (button.noteNumber > -1) &&
-                    selectedVoice.availableNotes.includes(button.noteNumber)
+                    availableNotes.includes(button.noteNumber)
             } else {
                 button.available = false
             }
 
             var buttonPlayingVoices = [];
             for (var voice of voices) {
-                if (!voice.usedNotes) {
+                var usedNotes = voice.usedNotes.get(selectedSection);
+                if (!usedNotes) {
                     continue;
                 }
-                if (voice.usedNotes.includes(button.noteNumber)) {
+
+                if (usedNotes.includes(button.noteNumber)) {
                     buttonPlayingVoices.push(voice.num);
                 }
             }
@@ -261,7 +275,7 @@ MuseScore {
                 ));
             }
         }
-        
+
         updateVoiceNumbers();
         selectVoice((typeof initialVoice !== "undefined") ? initialVoice : voices[0]);
     }
@@ -274,13 +288,14 @@ MuseScore {
         return n;
     }
 
-    function applyChordColors(voice, chord) {
+    function applyChordColors(voice, section, chord) {
+        var usedNotes = voice.usedNotes.get(section);
         for (var i = 0; i < chord.notes.length; i++) {
             var pitch = chord.notes[i].pitch;
             if (minPitch <= pitch && pitch <= maxPitch) {
                 var noteNumber = pitch - minPitch;
                 var color = emptyNoteColor;
-                if (voice.usedNotes.includes(noteNumber)) {
+                if (usedNotes.includes(noteNumber)) {
                     color = noteColors[pitch % 12];
                 }
 
@@ -296,7 +311,7 @@ MuseScore {
         }
 
         for (var i = 0; i < chord.graceNotes.length; i++) {
-            applyChordColors(voice, chord.graceNotes[i]);
+            applyChordColors(voice, section, chord.graceNotes[i]);
         }
 
     }
@@ -313,12 +328,23 @@ MuseScore {
                 cursor.staffIdx = s;
                 cursor.voice = v;
 
+                var currentSection = '';
+
                 while (cursor.segment) {
+                    for (var i = 0; i < cursor.segment.annotations.length; i++) {
+                        var element = cursor.segment.annotations[i];
+                        if (element.type === Element.STAFF_TEXT
+                                && element.text.startsWith("#BW")
+                                && element.staff.is(curScore.staves[s])) {
+                            currentSection = element.text.substring(3).trim();
+                        }
+                    }
+
                     if (cursor.element && cursor.element.type == Element.CHORD) {
                         var name = cursor.element.staff.part.longName;
                         var voice = voicesByName.get(name);
 
-                        applyChordColors(voice, cursor.element);
+                        applyChordColors(voice, currentSection, cursor.element);
                     }
 
                     cursor.next();
@@ -362,8 +388,17 @@ MuseScore {
             cursor.staffIdx = i;
             cursor.voice = 0;
 
+            var usedNotes = [];
+            for (var section of sections) {
+                for (var sectionUsedNote of voice.usedNotes.get(section)) {
+                    if (!usedNotes.includes(sectionUsedNote)) {
+                        usedNotes.push(sectionUsedNote);
+                    }
+                }
+            }
+
             var offset = 0;
-            for (var noteNumber of voice.usedNotes.sort(function (a, b) {  return a - b;  })) {
+            for (var noteNumber of usedNotes.sort(function (a, b) {  return a - b;  })) {
                 var text = newElement(Element.STAFF_TEXT);
                 text.text = noteNameOf(noteNumber);
                 text.placement = Placement.ABOVE;
@@ -407,21 +442,22 @@ MuseScore {
 
     onRun: {
         if (typeof curScore === 'undefined') {
-            var msg = "Chord Levels exiting without processing - no current score!";
-            console.log(msg);
-            displayMessageDlg(msg);
+            displayMessageDlg("Exiting without processing - no current score!");
             (typeof(quit) === 'undefined' ? Qt.quit : quit)()
         }
 
+        selectedSection = '';
         collectVoices();
         createButtons();
+
+        sectionSpinner.haveSections = sections.length > 1;
+        buttonsSpacer.haveSections = sections.length > 1;
     }
 
     MessageDialog {
         id: ctrlMessageDialog
         icon: StandardIcon.Information
-        title: "Chord Levels Message"
-        text: "Welcome to Chord Levels!"
+        title: "Message"
         visible: false
         onAccepted: {
             visible = false;
@@ -464,7 +500,6 @@ MuseScore {
                     radius: headerHeight / 2
                     color: noteColors[7]
                 }
-                
             }
             
             Text {
@@ -638,11 +673,12 @@ MuseScore {
                         hoverEnabled: true
                         
                         onClicked: {
-                            var noteIndex = selectedVoice.usedNotes.indexOf(noteNumber);
+                            var usedNotes = selectedVoice.usedNotes.get(selectedSection);
+                            var noteIndex = usedNotes.indexOf(noteNumber);
                             if (noteIndex > -1) {
-                                selectedVoice.usedNotes.splice(noteIndex, 1);
+                                usedNotes.splice(noteIndex, 1);
                             } else {
-                                selectedVoice.usedNotes.push(noteNumber);
+                                usedNotes.push(noteNumber);
                             }
                             updateNoteButtons();
                         }
@@ -711,10 +747,119 @@ MuseScore {
             }
         }
 
-         Row {
-            x: 608
-            spacing: 8
+        Row {
+            property int buttonGap: 8
+            x: buttonWidth + dividerWidth 
+            spacing: buttonGap
 
+            Row {
+                id: sectionSpinner
+
+                property bool haveSections: false
+                property int spinWidth: 30
+                property int spinGap: 3
+                spacing: spinGap
+                visible: haveSections
+                
+                MouseArea {
+                    width: parent.spinWidth
+                    height: buttonHeight
+
+                    hoverEnabled: true
+                    
+                    onClicked: {
+                        var i = sections.indexOf(selectedSection);
+                        if (i - 1 < 0) {
+                            i = sections.length - 1;
+                        } else {
+                            i--;
+                        }
+                        selectedSection = sections[i];
+                        updateNoteButtons();
+                      
+                    }
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        color: parent.containsMouse ? buttonHoverColor : buttonColor
+                        radius: 4
+                        
+                        Text {
+                            anchors.fill: parent
+                            height: buttonHeight
+                            font.pixelSize: 12
+                            text: "←"
+                            color: "#fff"
+                            horizontalAlignment: Text.AlignHCenter 
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                    }
+                }
+
+                Rectangle {
+                    width: buttonWidth - 2*parent.spinWidth - 2*parent.spinGap
+                    height: buttonHeight
+        
+                    color: "#222"
+                    radius: 4
+                    
+
+                    Text {
+                        anchors.fill: parent
+                        horizontalAlignment: Text.AlignHCenter 
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                        text: (!selectedSection) ? 'Standard' : selectedSection
+                        color: "#fff"
+                    }
+                }
+                
+                MouseArea {
+                    width: parent.spinWidth
+                    height: buttonHeight
+
+                    hoverEnabled: true
+                    
+                    onClicked: {
+                        var i = sections.indexOf(selectedSection);
+                        if (i + 1 >= sections.length) {
+                            i = 0;
+                        } else {
+                            i++;
+                        }
+                        selectedSection = sections[i];
+                        updateNoteButtons();
+                    }
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        color: parent.containsMouse ? buttonHoverColor : buttonColor
+                        radius: 4
+                        
+                        Text {
+                            anchors.fill: parent
+                            height: buttonHeight
+                            text: "→"
+                            color: "#fff"
+                            font.pixelSize: 12
+                            horizontalAlignment: Text.AlignHCenter 
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        
+                    }
+                }
+            }
+            
+            Rectangle {
+                id: buttonsSpacer
+
+                property bool haveSections: false
+
+                width: octaveLabelWidth + 12 * (gridSpacing + noteButtonSize) - (haveSections ? 3 : 2) * (buttonWidth + parent.buttonGap)
+                height: buttonHeight
+                color: "transparent"
+            }
+            
             MouseArea {
                 width: buttonWidth
                 height: buttonHeight
@@ -736,7 +881,7 @@ MuseScore {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter 
                         verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         text: "OK"
                         color: "#fff"
                     }
@@ -763,7 +908,7 @@ MuseScore {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter 
                         verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         text: "Cancel"
                         color: "#fff"
                     }

@@ -12,10 +12,10 @@ The plugin uses the following octave names:
 
 | Octave | Note range  | Description                                                                                                              |
 | :----: | :---------: | ------------------------------------------------------------------------------------------------------------------------ |
-|  `↑­`  | `c"` - `g"`  | The high register.                                                                                                       |
-|  `-­`  | `c'` - `b'`  | The normal register. When adding labels, the `-` will be omitted.                                                        |
-|  `↓­`  |  `c` - `b`   | The low register.                                                                                                        |
-| `↓↓­`  |  `C` - `B`   | The lowest register. This can be achieved by putting tube caps on the large pipes, which loweres them by another octave. |
+|  `↑­`  | `c"` - `g"` | The high register.                                                                                                       |
+|  `-­`  | `c'` - `b'` | The normal register. When adding labels, the `-` will be omitted.                                                        |
+|  `↓­`  |  `c` - `b`  | The low register.                                                                                                        |
+| `↓↓­`  |  `C` - `B`  | The lowest register. This can be achieved by putting tube caps on the large pipes, which loweres them by another octave. |
 
 ## Recommended steps
 
@@ -32,3 +32,17 @@ For creating a score with multiple parts and distributing Boomwhackers between t
 The result of such an operation is shown in the following picture.
 
 ![Colored score](resources/screenshot_score.png)
+
+## Sections
+
+Sections are a more advanced technique that allow to distribute notes between players based on where they are placed in the score. So the same note can be assigned to player A in the first section and to player B in the next sections.
+
+To declare a section, specially formatted staff texts are used. Initially, a staff is in a standard section. To switch to another section, insert a staff text with content in the format `#BW <SectionName>`, where `<SectionName>` is the desired name of the section. To switch back to the standard section, use a staff text with the content `#BW` (without any section name):
+
+![Sections in score](resources/score_section_description.png)
+
+In the plugin dialog, you can select the section you want to edit with the arrows beneath the note selection buttons. Distributing notes between players is then done in the same way as before.
+
+The following picture shows a more complex coloring with multiple players playing the same note in different sections:
+
+![Complex sections coloring](resources/score_complex_sections.png)
