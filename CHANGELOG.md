@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added ability to select notes according to sections ([#11](https://github.com/dasdware/dw-boomwhackers/issues/11)).
+
 ### Changed
 
 - Added coloring for dots ([#16](https://github.com/dasdware/dw-boomwhackers/issues/16)).
