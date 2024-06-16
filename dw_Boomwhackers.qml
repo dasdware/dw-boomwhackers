@@ -1,17 +1,3 @@
-//==========================================================================================
-//  Chord Level Select for MuseScore
-//  Has been tested in custom 3.7 branch, 3.6.2,
-//  and to be tested on 4.x
-
-//  Errors or suggestions or whatever @ https://musescore.org/en/node/328754
-//  Maybe I should get a git branch for this thing...
-//
-//
-//  This program is free software; you can redistribute it and/or modify
-//  it under the terms of the GNU General Public License version 2
-//  as published by the Free Software Foundation and appearing in
-//  the file LICENCE.GPL
-//===========================================================================================
 import QtQuick 2.2
 import QtQuick.Controls 1.1
 import QtQuick.Controls.Styles 1.4
@@ -50,7 +36,7 @@ MuseScore {
     property int gridSpacing: 6
     
     width: margin + buttonWidth + dividerWidth + octaveLabelWidth + 12 * (gridSpacing + noteButtonSize) + margin
-    height: margin + headerHeight + dividerHeight + noteLabelHeight + 4 * (gridSpacing + noteButtonSize) + dividerHeight + buttonHeight + dividerHeight + buttonHeight + margin
+    height: margin + headerHeight + dividerHeight + noteLabelHeight + 4 * (gridSpacing + noteButtonSize) + dividerHeight + buttonHeight + margin
 
     // colors
     property string buttonColor: "#333"
@@ -290,10 +276,6 @@ MuseScore {
             }
         }
 
-        for (var section of sections) {
-            sectionButton.createObject(sectionButtons, { section });
-        }
-        
         updateVoiceNumbers();
         selectVoice((typeof initialVoice !== "undefined") ? initialVoice : voices[0]);
     }
@@ -467,6 +449,9 @@ MuseScore {
         selectedSection = '';
         collectVoices();
         createButtons();
+
+        sectionSpinner.haveSections = sections.length > 1;
+        buttonsSpacer.haveSections = sections.length > 1;
     }
 
     MessageDialog {
@@ -763,49 +748,118 @@ MuseScore {
         }
 
         Row {
-            id: sectionButtons
-            x: buttonWidth + dividerWidth
-            spacing: 8
+            property int buttonGap: 8
+            x: buttonWidth + dividerWidth 
+            spacing: buttonGap
 
-            Component {
-                id: sectionButton
+            Row {
+                id: sectionSpinner
 
+                property bool haveSections: false
+                property int spinWidth: 30
+                property int spinGap: 3
+                spacing: spinGap
+                visible: haveSections
+                
                 MouseArea {
-                    width: buttonWidth * 0.5
+                    width: parent.spinWidth
                     height: buttonHeight
-                    
-                    hoverEnabled: true
 
-                    property string section
+                    hoverEnabled: true
                     
                     onClicked: {
-                        selectedSection = section;
+                        var i = sections.indexOf(selectedSection);
+                        if (i - 1 < 0) {
+                            i = sections.length - 1;
+                        } else {
+                            i--;
+                        }
+                        selectedSection = sections[i];
                         updateNoteButtons();
+                      
                     }
-        
+                    
                     Rectangle {
                         anchors.fill: parent
-            
-                        color: parent.containsMouse ? buttonHoverColor : (selectedSection == parent.section) ? buttonSelectedColor : buttonColor
+                        color: parent.containsMouse ? buttonHoverColor : buttonColor
                         radius: 4
                         
                         Text {
                             anchors.fill: parent
+                            height: buttonHeight
+                            font.pixelSize: 12
+                            text: "←"
+                            color: "#fff"
                             horizontalAlignment: Text.AlignHCenter 
                             verticalAlignment: Text.AlignVCenter
-                            font.pixelSize: 10
-                            text: parent.parent.section || "Standard"
-                            color: "#fff"
                         }
                     }
                 }
+
+                Rectangle {
+                    width: buttonWidth - 2*parent.spinWidth - 2*parent.spinGap
+                    height: buttonHeight
+        
+                    color: "#222"
+                    radius: 4
+                    
+
+                    Text {
+                        anchors.fill: parent
+                        horizontalAlignment: Text.AlignHCenter 
+                        verticalAlignment: Text.AlignVCenter
+                        font.pixelSize: 12
+                        text: (!selectedSection) ? 'Standard' : selectedSection
+                        color: "#fff"
+                    }
+                }
+                
+                MouseArea {
+                    width: parent.spinWidth
+                    height: buttonHeight
+
+                    hoverEnabled: true
+                    
+                    onClicked: {
+                        var i = sections.indexOf(selectedSection);
+                        if (i + 1 >= sections.length) {
+                            i = 0;
+                        } else {
+                            i++;
+                        }
+                        selectedSection = sections[i];
+                        updateNoteButtons();
+                    }
+                    
+                    Rectangle {
+                        anchors.fill: parent
+                        color: parent.containsMouse ? buttonHoverColor : buttonColor
+                        radius: 4
+                        
+                        Text {
+                            anchors.fill: parent
+                            height: buttonHeight
+                            text: "→"
+                            color: "#fff"
+                            font.pixelSize: 12
+                            horizontalAlignment: Text.AlignHCenter 
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        
+                    }
+                }
             }
-        }
+            
+            Rectangle {
+                id: buttonsSpacer
 
-        Row {
-            x: 608
-            spacing: 8
+                property bool haveSections: false
 
+                width: octaveLabelWidth + 12 * (gridSpacing + noteButtonSize) - (haveSections ? 3 : 2) * (buttonWidth + parent.buttonGap)
+                height: buttonHeight
+                color: "transparent"
+            }
+            
             MouseArea {
                 width: buttonWidth
                 height: buttonHeight
@@ -827,7 +881,7 @@ MuseScore {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter 
                         verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         text: "OK"
                         color: "#fff"
                     }
@@ -854,7 +908,7 @@ MuseScore {
                         anchors.fill: parent
                         horizontalAlignment: Text.AlignHCenter 
                         verticalAlignment: Text.AlignVCenter
-                        font.pixelSize: 10
+                        font.pixelSize: 12
                         text: "Cancel"
                         color: "#fff"
                     }
