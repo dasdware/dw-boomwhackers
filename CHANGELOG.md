@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Added support for MuseScore Studio 4.4 ([#19](https://github.com/dasdware/dw-boomwhackers/issues/19)).
 - Added coloring for dots ([#16](https://github.com/dasdware/dw-boomwhackers/issues/16)).
 - Added coloring for accidentals ([#13](https://github.com/dasdware/dw-boomwhackers/issues/13)).
 - Added coloring for grace notes ([#9](https://github.com/dasdware/dw-boomwhackers/issues/9)).
