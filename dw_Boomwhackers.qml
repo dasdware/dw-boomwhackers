@@ -1,23 +1,17 @@
 import QtQuick 2.2
-import QtQuick.Controls 1.1
-import QtQuick.Controls.Styles 1.4
-import QtQuick.Dialogs 1.1
 import MuseScore 3.0
 
 MuseScore {
     id: boomwhacker_colors
 
-    Component.onCompleted : {
-        if (mscoreMajorVersion >= 4) {
-            boomwhacker_colors.title = qsTr("Boomwhacker Colors") ;
-            boomwhacker_colors.thumbnailName = "resources/dw_Boomwhackers.png";
-            boomwhacker_colors.categoryCode = "boomwhacker-colors";
-        }
-    }
-
     version: "1.0.0"
-    description: qsTr("Color notes as per Boomwhacker color scheme. Allows to select which notes for which part should be colored to allow creating parts for individual players.")
+    description: "Color notes as per Boomwhacker color scheme. Allows to select which notes for which part should be colored to allow creating parts for individual players."
+    title: "Boomwhacker Colors"
+    categoryCode: "color-notes"
     pluginType: "dialog"
+    thumbnailName: "resources/dw_Boomwhackers.png"
+
+    requiresScore: true
 
     // configuration
     property int maxPitch: 79
@@ -63,7 +57,7 @@ MuseScore {
     property var existingLabels: []
 
     function existingLabelsIncludes(element) {
-        for (var existingLabel of existingLabels) {
+        for (let existingLabel of existingLabels) {
             if (existingLabel.is(element)) {
                 return true;
             }
@@ -77,20 +71,20 @@ MuseScore {
     }
 
     function collectChord(voice, chord, section) {
-        for (var i = 0; i < chord.notes.length; i++) {
-            var pitch = chord.notes[i].pitch;
+        for (let i = 0; i < chord.notes.length; i++) {
+            const pitch = chord.notes[i].pitch;
             if (minPitch <= pitch && pitch <= maxPitch) {
                 if (!voice.availableNotes.has(section)) {
                     voice.availableNotes.set(section, []);
                 }
-                var availableNotes = voice.availableNotes.get(section);
+                const availableNotes = voice.availableNotes.get(section);
 
                 if (!voice.usedNotes.has(section)) {
                     voice.usedNotes.set(section, []);
                 }
-                var usedNotes = voice.usedNotes.get(section);
+                const usedNotes = voice.usedNotes.get(section);
 
-                var noteNumber = pitch - minPitch;
+                const noteNumber = pitch - minPitch;
                 if (!availableNotes.includes(noteNumber)) {
                     availableNotes.push(noteNumber);
                 } if (chord.notes[i].color != emptyNoteColor
@@ -100,54 +94,82 @@ MuseScore {
             }
         }
 
-        for (var i = 0; i < chord.graceNotes.length; i++) {
+        for (let i = 0; i < chord.graceNotes.length; i++) {
             collectChord(voice, chord.graceNotes[i], section);
         }
     }
 
-    function collectVoices() {
-        var cursor = curScore.newCursor();
+    function buildSectionMap(staffIndex) {
+        const sectionMap = [];
+        for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
+            const cursor = curScore.newCursor();
+            cursor.rewind(Cursor.SCORE_START);
+            cursor.staffIdx = staffIndex;
+            cursor.voice = voiceIndex;
 
+            while (cursor.segment) {
+                for (let i = 0; i < cursor.segment.annotations.length; i++) {
+                    const element = cursor.segment.annotations[i];
+                    if (element.type === Element.STAFF_TEXT
+                            && element.text.startsWith("#BW")
+                            && element.staff.is(curScore.staves[staffIndex])) {
+                        const section = element.text.substring(3).trim();
+                        if (sectionMap.find((e) => e.tick === cursor.tick) === undefined) {
+                            sectionMap.push({ tick: cursor.tick, section: section });
+                        }
+                    }
+                }
+
+                cursor.next();
+            }
+        }
+        sectionMap.sort((a, b) => a.tick - b.tick);
+        return sectionMap;
+    }
+
+    function findSectionByTick(sectionMap, tick) {
+        for (let i = sectionMap.length - 1; i >= 0; i--) {
+            if (sectionMap[i].tick <= tick) {
+                return sectionMap[i].section;
+            }
+        }
+        return '';
+    }
+
+    function collectVoices() {
+        sections = [];
         voices = [];
         voicesByName = new Map();
 
-        for (var s = 0; s < curScore.nstaves; s++) {
-            cursor.rewind(Cursor.SCORE_START);
-            cursor.staffIdx = s;
-            cursor.voice = 0;
+        for (let staffIndex = 0; staffIndex < curScore.nstaves; staffIndex++) {
+            const sectionMap = buildSectionMap(staffIndex);
 
-            for (var v = 0; v < 4; v++) {
+            for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
+                const cursor = curScore.newCursor();
                 cursor.rewind(Cursor.SCORE_START);
-                cursor.staffIdx = s;
-                cursor.voice = v;
-
-                var currentSection = '';
-                if (!sections.includes(currentSection)) {
-                    sections.push(currentSection);
-                }
+                cursor.staffIdx = staffIndex;
+                cursor.voice = voiceIndex;
 
                 while (cursor.segment) {
-                    for (var i = 0; i < cursor.segment.annotations.length; i++) {
-                        var element = cursor.segment.annotations[i];
+                    for (let i = 0; i < cursor.segment.annotations.length; i++) {
+                        const element = cursor.segment.annotations[i];
                         if (element.type === Element.STAFF_TEXT 
                                 && !existingLabelsIncludes(element)
                                 && noteColors.includes(element.frameBgColor.toString())
                                 && noteTextColors.includes(element.color.toString())) {
                             existingLabels.push(element);
-                        } else if (element.type === Element.STAFF_TEXT
-                                && element.text.startsWith("#BW")
-                                && element.staff.is(curScore.staves[s])) {
-                            currentSection = element.text.substring(3).trim();
-                            if (!sections.includes(currentSection)) {
-                                sections.push(currentSection);
-                            }
                         }
                     }
 
+                    const currentSection = findSectionByTick(sectionMap, cursor.tick);
+                    if (!sections.includes(currentSection)) {
+                        sections.push(currentSection);
+                    }
+
                     if (cursor.element && cursor.element.type == Element.CHORD) {
-                        var name = cursor.element.staff.part.longName;
+                        const name = cursor.element.staff.part.longName;
                         if (!voicesByName.has(name)) {
-                            var newVoice = {
+                            const newVoice = {
                                 name: name,
                                 num: 0,
                                 active: true,
@@ -157,7 +179,7 @@ MuseScore {
                             voices.push(newVoice);
                             voicesByName.set(name, newVoice);
                         }
-                        var voice = voicesByName.get(name);
+                        const voice = voicesByName.get(name);
                         collectChord(voice, cursor.element, currentSection);
                     }
 
@@ -167,11 +189,13 @@ MuseScore {
         }
 
         sections.sort();
+
+        //displayMessageDlg(JSON.stringify({voices: voices, available: Array.from(voices[0].availableNotes.entries()), sectionChanges: sectionChanges, segments: segments }));
         return voices;
     }
 
     function selectVoice(voice) {
-        for (var button of voiceSelectionButtons) {
+        for (let button of voiceSelectionButtons) {
             button.selected = (button.voice == voice);
             if (button.selected) {
                 selectedVoice = button.voice;
@@ -189,8 +213,8 @@ MuseScore {
     }
     
     function updateVoiceNumbers() {
-        var num = 1;
-        for (var i = 0; i < voices.length; ++i) {
+        let num = 1;
+        for (let i = 0; i < voices.length; ++i) {
             if (voices[i].active) {
                 voices[i].num = num;
                 ++num;
@@ -202,7 +226,7 @@ MuseScore {
     }
     
     function updateVoiceButtons() {
-        for (var voice of voices) {
+        for (let voice of voices) {
             voice.selectionButton.name = voice.name;
             voice.selectionButton.active = voice.active;
             voice.selectionButton.num = voice.num;
@@ -210,8 +234,8 @@ MuseScore {
     }
     
     function updateNoteButtons() {
-        var availableNotes = selectedVoice.availableNotes.get(selectedSection);
-        for (var button of noteButtons) {
+        const availableNotes = selectedVoice.availableNotes.get(selectedSection);
+        for (let button of noteButtons) {
             if (selectedVoice.active) {
                 button.available = (button.noteNumber > -1) &&
                     availableNotes.includes(button.noteNumber)
@@ -219,9 +243,9 @@ MuseScore {
                 button.available = false
             }
 
-            var buttonPlayingVoices = [];
-            for (var voice of voices) {
-                var usedNotes = voice.usedNotes.get(selectedSection);
+            const buttonPlayingVoices = [];
+            for (let voice of voices) {
+                const usedNotes = voice.usedNotes.get(selectedSection);
                 if (!usedNotes) {
                     continue;
                 }
@@ -246,8 +270,8 @@ MuseScore {
     }
     
     function createButtons() {
-        var initialVoice = undefined;
-        for (var voice of voices) {
+        let initialVoice = undefined;
+        for (let voice of voices) {
             voice.selectionButton = voiceButton.createObject(voiceButtons, { voice });
             voiceSelectionButtons.push(voice.selectionButton);
             
@@ -259,17 +283,17 @@ MuseScore {
         octaveLabel.createObject(
             notesGrid, { text: "Octave", width: octaveLabelWidth, height: noteLabelHeight }
         );
-        for (var i = 0; i < noteNames.length; ++i) {
+        for (let i = 0; i < noteNames.length; ++i) {
             noteLabel.createObject(
                 notesGrid, { noteNumber: i }
             );
         }
-        for (var i = 0; i < octaveNames.length; ++i) {
+        for (let i = 0; i < octaveNames.length; ++i) {
             octaveLabel.createObject(
                 notesGrid, { text: octaveNames[i], width: octaveLabelWidth, height: noteButtonSize }
             );
             
-            for (var j = 0; j < noteNames.length; ++j) {
+            for (let j = 0; j < noteNames.length; ++j) {
                 noteButtons.push(noteButton.createObject(
                     notesGrid, { noteNumber: noteNumber(i, j) }
                 ));
@@ -281,7 +305,7 @@ MuseScore {
     }
     
     function noteNumber(octave, note) {
-        var n = (octaveNames.length - octave - 1) * 12 + note;
+        const n = (octaveNames.length - octave - 1) * 12 + note;
         if (n > maxNoteNumber) {
             return -1;
         }
@@ -289,12 +313,12 @@ MuseScore {
     }
 
     function applyChordColors(voice, section, chord) {
-        var usedNotes = voice.usedNotes.get(section);
-        for (var i = 0; i < chord.notes.length; i++) {
-            var pitch = chord.notes[i].pitch;
+        const usedNotes = voice.usedNotes.get(section);
+        for (let i = 0; i < chord.notes.length; i++) {
+            const pitch = chord.notes[i].pitch;
             if (minPitch <= pitch && pitch <= maxPitch) {
-                var noteNumber = pitch - minPitch;
-                var color = emptyNoteColor;
+                const noteNumber = pitch - minPitch;
+                let color = emptyNoteColor;
                 if (usedNotes.includes(noteNumber)) {
                     color = noteColors[pitch % 12];
                 }
@@ -304,45 +328,34 @@ MuseScore {
                     chord.notes[i].accidental.color = color;
                 }
 
-                for (var j = 0; j < chord.notes[i].dots.length; j++) {
+                for (let j = 0; j < chord.notes[i].dots.length; j++) {
                     chord.notes[i].dots[j].color = color;
                 }
             }
         }
 
-        for (var i = 0; i < chord.graceNotes.length; i++) {
+        for (let i = 0; i < chord.graceNotes.length; i++) {
             applyChordColors(voice, section, chord.graceNotes[i]);
         }
 
     }
 
     function applyColors() {
-        var cursor = curScore.newCursor();
-        for (var s = 0; s < curScore.nstaves; s++) {
-            cursor.rewind(Cursor.SCORE_START);
-            cursor.staffIdx = s;
-            cursor.voice = 0;
+        for (let staffIndex = 0; staffIndex < curScore.nstaves; staffIndex++) {
+            const sectionMap = buildSectionMap(staffIndex);
 
-            for (var v = 0; v < 4; v++) {
+            for (let voiceIndex = 0; voiceIndex < 4; voiceIndex++) {
+                const cursor = curScore.newCursor();
                 cursor.rewind(Cursor.SCORE_START);
-                cursor.staffIdx = s;
-                cursor.voice = v;
-
-                var currentSection = '';
+                cursor.staffIdx = staffIndex;
+                cursor.voice = voiceIndex;
 
                 while (cursor.segment) {
-                    for (var i = 0; i < cursor.segment.annotations.length; i++) {
-                        var element = cursor.segment.annotations[i];
-                        if (element.type === Element.STAFF_TEXT
-                                && element.text.startsWith("#BW")
-                                && element.staff.is(curScore.staves[s])) {
-                            currentSection = element.text.substring(3).trim();
-                        }
-                    }
+                    const currentSection = findSectionByTick(sectionMap, cursor.tick);
 
                     if (cursor.element && cursor.element.type == Element.CHORD) {
-                        var name = cursor.element.staff.part.longName;
-                        var voice = voicesByName.get(name);
+                        const name = cursor.element.staff.part.longName;
+                        const voice = voicesByName.get(name);
 
                         applyChordColors(voice, currentSection, cursor.element);
                     }
@@ -354,15 +367,15 @@ MuseScore {
     }
 
     function removeExistingLabels() {
-        for (var existingLabel of existingLabels) {
+        for (let existingLabel of existingLabels) {
             removeElement(existingLabel);
         }
         existingLabels = [];
     }
 
     function noteNameOf(noteNumber) {
-        var octave = octaveNames.length - Math.floor(noteNumber / 12) - 1;
-        var octaveName = octaveNames[octaveNames.length - Math.floor(noteNumber / 12) - 1];
+        const octave = octaveNames.length - Math.floor(noteNumber / 12) - 1;
+        let octaveName = octaveNames[octaveNames.length - Math.floor(noteNumber / 12) - 1];
         if (octaveName === "-") {
             octaveName = "";
         }
@@ -370,36 +383,36 @@ MuseScore {
     }
 
     function addLabels() {
-        var lastPartName = "";
-        var cursor = curScore.newCursor();
-        for (var i = 0; i < curScore.nstaves; ++i) {
-            var partName = curScore.staves[i].part.longName;
+        let lastPartName = "";
+        for (let staffIndex = 0; staffIndex < curScore.nstaves; ++staffIndex) {
+            const partName = curScore.staves[staffIndex].part.longName;
             if (lastPartName === partName) {
                 continue;
             }
             lastPartName = partName;
 
-            var voice = voices.find(v => v.name === partName);
+            const voice = voices.find(v => v.name === partName);
             if (!voice) {
                 continue;
             }
 
+            const cursor = curScore.newCursor();
             cursor.rewind(Cursor.SCORE_START);
-            cursor.staffIdx = i;
+            cursor.staffIdx = staffIndex;
             cursor.voice = 0;
 
-            var usedNotes = [];
-            for (var section of sections) {
-                for (var sectionUsedNote of voice.usedNotes.get(section)) {
+            const usedNotes = [];
+            for (let section of sections) {
+                for (let sectionUsedNote of voice.usedNotes.get(section)) {
                     if (!usedNotes.includes(sectionUsedNote)) {
                         usedNotes.push(sectionUsedNote);
                     }
                 }
             }
 
-            var offset = 0;
-            for (var noteNumber of usedNotes.sort(function (a, b) {  return a - b;  })) {
-                var text = newElement(Element.STAFF_TEXT);
+            let offset = 0;
+            for (let noteNumber of usedNotes.sort(function (a, b) {  return a - b;  })) {
+                const text = newElement(Element.STAFF_TEXT);
                 text.text = noteNameOf(noteNumber);
                 text.placement = Placement.ABOVE;
                 text.autoplace = false;
@@ -421,8 +434,6 @@ MuseScore {
     		    cursor.add(text);
                 offset += text.bbox.width + 2 + 1;
             }
-
-
         }
     }
 
@@ -456,7 +467,6 @@ MuseScore {
 
     MessageDialog {
         id: ctrlMessageDialog
-        icon: StandardIcon.Information
         title: "Message"
         visible: false
         onAccepted: {
@@ -673,8 +683,8 @@ MuseScore {
                         hoverEnabled: true
                         
                         onClicked: {
-                            var usedNotes = selectedVoice.usedNotes.get(selectedSection);
-                            var noteIndex = usedNotes.indexOf(noteNumber);
+                            const usedNotes = selectedVoice.usedNotes.get(selectedSection);
+                            const noteIndex = usedNotes.indexOf(noteNumber);
                             if (noteIndex > -1) {
                                 usedNotes.splice(noteIndex, 1);
                             } else {
@@ -768,7 +778,7 @@ MuseScore {
                     hoverEnabled: true
                     
                     onClicked: {
-                        var i = sections.indexOf(selectedSection);
+                        let i = sections.indexOf(selectedSection);
                         if (i - 1 < 0) {
                             i = sections.length - 1;
                         } else {
@@ -821,7 +831,7 @@ MuseScore {
                     hoverEnabled: true
                     
                     onClicked: {
-                        var i = sections.indexOf(selectedSection);
+                        let i = sections.indexOf(selectedSection);
                         if (i + 1 >= sections.length) {
                             i = 0;
                         } else {
